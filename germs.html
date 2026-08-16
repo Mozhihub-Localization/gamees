@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Telegram Style Tap Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+            user-select: none; /* Prevents text selection while tapping */
+        }
+
+        body {
+            background: radial-gradient(circle at top, #1a2a6c, #112 70%);
+            color: #ffffff;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 400px;
+            height: 100vh;
+            max-height: 800px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 30px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Header / Score Area */
+        .header {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .score-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            font-size: 3rem;
+            font-weight: 800;
+            text-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .coin-icon {
+            font-size: 2.5rem;
+            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.8));
+        }
+
+        /* Main Game Area */
+        .game-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .main-gem {
+            font-size: 150px;
+            cursor: pointer;
+            transition: transform 0.05s ease-in-out;
+            filter: drop-shadow(0 0 30px rgba(0, 255, 255, 0.6));
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .main-gem:active {
+            transform: scale(0.9);
+            filter: drop-shadow(0 0 50px rgba(0, 255, 255, 1));
+        }
+
+        /* Energy Bar */
+        .energy-container {
+            margin-bottom: 20px;
+        }
+
+        .energy-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .energy-bar-bg {
+            width: 100%;
+            height: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .energy-bar-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #ff8a00, #e52e71);
+            border-radius: 10px;
+            transition: width 0.1s linear;
+        }
+
+        /* Floating Text Animation */
+        .floating-text {
+            position: absolute;
+            color: #fff;
+            font-size: 2rem;
+            font-weight: bold;
+            pointer-events: none;
+            text-shadow: 0 0 5px rgba(255,255,255,0.5);
+            animation: floatUp 1s ease-out forwards;
+            z-index: 100;
+        }
+
+        @keyframes floatUp {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-100px) scale(1.5);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Score Display -->
+        <div class="header">
+            <div class="score-container">
+                <span class="coin-icon">💎</span>
+                <span id="score">0</span>
+            </div>
+            <p style="color: #aaa; margin-top: 5px;">Tap the gem to earn points!</p>
+        </div>
+
+        <!-- Tappable Gem -->
+        <div class="game-area">
+            <div id="main-gem" class="main-gem">💎</div>
+        </div>
+
+        <!-- Energy System -->
+        <div class="energy-container">
+            <div class="energy-text">
+                <span>⚡</span> <span id="current-energy">1000</span> / 1000
+            </div>
+            <div class="energy-bar-bg">
+                <div id="energy-bar" class="energy-bar-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game Variables
+        let score = 0;
+        let maxEnergy = 1000;
+        let currentEnergy = maxEnergy;
+        let energyRegenRate = 1; // Amount of energy restored per interval
+        let tapPower = 1; // Points earned per tap
+
+        // DOM Elements
+        const scoreElement = document.getElementById('score');
+        const energyElement = document.getElementById('current-energy');
+        const energyBar = document.getElementById('energy-bar');
+        const gemElement = document.getElementById('main-gem');
+
+        // Initial UI Setup
+        updateUI();
+
+        // Tap Event handling (Supports both mobile touch and mouse click)
+        gemElement.addEventListener('pointerdown', (e) => {
+            e.preventDefault(); // Prevents zoom/scroll on mobile
+            
+            if (currentEnergy >= tapPower) {
+                // Update Score and Energy
+                score += tapPower;
+                currentEnergy -= tapPower;
+                
+                // Vibrate on mobile devices (if supported)
+                if (navigator.vibrate) {
+                    navigator.vibrate(15); 
+                }
+
+                updateUI();
+                showFloatingText(e);
+            }
+        });
+
+        // Function to update Score and Energy Bar
+        function updateUI() {
+            scoreElement.innerText = score.toLocaleString();
+            energyElement.innerText = Math.floor(currentEnergy);
+            
+            // Calculate percentage for the energy bar
+            const energyPercent = (currentEnergy / maxEnergy) * 100;
+            energyBar.style.width = `${energyPercent}%`;
+
+            // Change color if energy is low
+            if(energyPercent < 20) {
+                energyBar.style.background = 'red';
+            } else {
+                energyBar.style.background = 'linear-gradient(90deg, #ff8a00, #e52e71)';
+            }
+        }
+
+        // Function to create '+1' floating animation at tap location
+        function showFloatingText(event) {
+            const floatText = document.createElement('div');
+            floatText.classList.add('floating-text');
+            floatText.innerText = `+${tapPower}`;
+
+            // Get exact X and Y coordinates of the tap
+            let x = event.clientX;
+            let y = event.clientY;
+
+            // Adjust position slightly so it appears right above the finger
+            floatText.style.left = `${x - 15}px`;
+            floatText.style.top = `${y - 40}px`;
+
+            document.body.appendChild(floatText);
+
+            // Remove the element after animation completes (1 second)
+            setTimeout(() => {
+                floatText.remove();
+            }, 1000);
+        }
+
+        // Energy Regeneration Loop (Runs every 100 milliseconds)
+        setInterval(() => {
+            if (currentEnergy < maxEnergy) {
+                currentEnergy += energyRegenRate;
+                if (currentEnergy > maxEnergy) {
+                    currentEnergy = maxEnergy;
+                }
+                updateUI();
+            }
+        }, 100);
+
+    </script>
+</body>
+</html>
